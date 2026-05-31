@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Varanasi District GIS Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--p:#1a237e;--pl:#3949ab;--bd:#e0e0e0;--t:#212121;--t2:#555;--t3:#999;}
+body{font-family:'Segoe UI',system-ui,sans-serif;height:100vh;overflow:hidden;background:#f0f2f5;}
+#hdr{background:linear-gradient(135deg,#1a237e,#283593 55%,#1565c0);color:white;height:50px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(26,35,126,.5);z-index:1001;position:relative;}
+#hdr h1{font-size:14px;font-weight:700;}
+.hbadge{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;font-size:10px;padding:3px 10px;border-radius:20px;font-weight:600;display:flex;align-items:center;gap:5px;}
+.ldot{width:6px;height:6px;border-radius:50%;background:#4caf50;animation:pulse 1.6s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.5);}}
+#updt{font-size:10px;color:rgba(255,255,255,.5);}
+#loadmask{position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+#loadmask.done{display:none;}
+.spinner{width:42px;height:42px;border:4px solid #e0e0e0;border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-txt{font-size:13px;font-weight:600;color:var(--p);}
+.load-sub{font-size:11px;color:var(--t3);}
+#app{display:flex;height:calc(100vh - 50px);}
+#sb{width:282px;background:#fff;border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;scrollbar-width:thin;scrollbar-color:#ddd transparent;}
+#sb::-webkit-scrollbar{width:3px;}
+#sb::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px;}
+.tabs{display:flex;border-bottom:1px solid var(--bd);background:#f7f8fa;}
+.tab{flex:1;font-size:10px;font-weight:600;padding:9px 2px;cursor:pointer;color:var(--t3);text-align:center;border-bottom:2px solid transparent;transition:.2s;}
+.tab:hover{color:var(--pl);}
+.tab.act{color:var(--p);border-bottom-color:var(--p);background:#fff;}
+.tc{display:none;}.tc.act{display:block;}
+.sec{padding:11px 13px;border-bottom:1px solid #f0f0f0;}
+.stitle{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:9px;}
+.trow{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:7px 10px;border-radius:8px;background:#fafafa;border:1px solid #f0f0f0;}
+.tl{display:flex;align-items:center;gap:8px;}
+.ti{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.tnm{font-size:12px;font-weight:600;color:var(--t);}
+.tsb{font-size:10px;color:var(--t3);margin-top:1px;}
+.sw{position:relative;width:36px;height:20px;display:inline-block;flex-shrink:0;}
+.sw input{opacity:0;width:0;height:0;}
+.sl{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:20px;transition:.2s;}
+.sl:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.sw input:checked+.sl{background:var(--pl);}
+.sw input:checked+.sl:before{transform:translateX(16px);}
+.brow{display:flex;align-items:center;padding:6px 9px;border-radius:7px;margin-bottom:4px;border:1.5px solid transparent;background:#fafafa;transition:.15s;}
+.brow.on{background:#fff;border-color:var(--p);}
+.bdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.bnm{font-size:11px;font-weight:600;color:var(--t);flex:1;margin-left:7px;}
+.bgpc{font-size:9px;color:var(--t3);margin-right:7px;}
+.cpick{width:22px;height:22px;border-radius:5px;border:1.5px solid #ddd;cursor:pointer;padding:1px;background:none;flex-shrink:0;margin-right:4px;}
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.slider-lbl{font-size:10px;color:var(--t3);white-space:nowrap;min-width:72px;}
+.slider{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;background:#e0e0e0;outline:none;cursor:pointer;}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--p);cursor:pointer;}
+.slider-val{font-size:10px;color:var(--p);font-weight:700;min-width:28px;text-align:right;}
+.btn{width:100%;padding:8px;font-size:11px;font-weight:600;border:none;border-radius:7px;cursor:pointer;background:var(--p);color:white;transition:.15s;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:5px;}
+.btn:hover{background:var(--pl);}
+.btn-o{background:#fff;color:var(--p);border:1.5px solid var(--p);}
+.btn-o:hover{background:#eff2ff;}
+.btn-row{display:flex;gap:6px;}
+.btn-sm{width:auto;flex:1;padding:5px 7px;font-size:10px;border-radius:6px;margin:0;}
+.inp{width:100%;font-size:11px;padding:7px 10px;border:1.5px solid var(--bd);border-radius:7px;color:var(--t);background:#fff;margin-bottom:7px;outline:none;transition:.15s;}
+.inp:focus{border-color:var(--pl);}
+.alert{padding:7px 10px;border-radius:7px;font-size:10px;line-height:1.5;margin-top:6px;display:none;}
+.alert.show{display:block;}
+.alert.ok{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;}
+.alert.err{background:#ffebee;color:#c62828;border:1px solid #ffcdd2;}
+.alert.info{background:#e3f2fd;color:#1565c0;border:1px solid #bbdefb;}
+.alert.warn{background:#fff3e0;color:#e65100;border:1px solid #ffe0b2;}
+.iname{font-size:14px;font-weight:700;color:var(--p);margin-bottom:2px;}
+.isub{font-size:10px;color:var(--t3);margin-bottom:9px;}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px;}
+.sbox{background:#f0f4ff;border-radius:7px;padding:7px;text-align:center;}
+.sv{font-size:17px;font-weight:700;color:var(--p);}
+.sl2{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;}
+.gp-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;max-height:200px;overflow-y:auto;}
+.gp-item{font-size:10px;padding:3px 6px;background:#f8f8f8;border-radius:4px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fmt{background:#e8f5e9;border:1px solid #c8e6c9;border-radius:7px;padding:8px 10px;margin-top:8px;}
+.fmtt{font-size:9px;font-weight:700;color:#2e7d32;margin-bottom:4px;text-transform:uppercase;}
+.fmtb{font-size:10px;color:#388e3c;line-height:1.7;}
+/* FACILITY TYPE TREE */
+.ftype{border:1.5px solid #f0f0f0;border-radius:8px;margin-bottom:6px;overflow:hidden;background:#fafafa;}
+.ftype.on{border-color:var(--p);background:#fff;}
+.ftype-hd{display:flex;align-items:center;padding:7px 9px;cursor:pointer;gap:7px;}
+.ftype-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);}
+.ftype-nm{font-size:11px;font-weight:700;color:var(--t);flex:1;}
+.ftype-ct{font-size:9px;color:var(--t3);background:#eee;padding:1px 6px;border-radius:10px;margin-right:4px;}
+.ftype-exp{font-size:9px;color:var(--t3);transition:.2s;}
+.ftype.expanded .ftype-exp{transform:rotate(90deg);}
+.fclass-list{display:none;padding:0 9px 8px 28px;}
+.ftype.expanded .fclass-list{display:block;}
+.fclass{display:flex;align-items:center;justify-content:space-between;padding:4px 0;}
+.fclass-nm{font-size:10px;color:var(--t2);display:flex;align-items:center;gap:6px;}
+.fclass-ct{font-size:9px;color:var(--t3);}
+.mini-sw{position:relative;width:30px;height:16px;display:inline-block;flex-shrink:0;}
+.mini-sw input{opacity:0;width:0;height:0;}
+.mini-sl{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:16px;transition:.2s;}
+.mini-sl:before{position:absolute;content:"";height:11px;width:11px;left:2.5px;bottom:2.5px;background:#fff;border-radius:50%;transition:.2s;}
+.mini-sw input:checked+.mini-sl{background:var(--pl);}
+.mini-sw input:checked+.mini-sl:before{transform:translateX(14px);}
+#ma{flex:1;position:relative;overflow:hidden;}
+#lmap{position:absolute;inset:0;z-index:1;}
+#tp{display:none;position:absolute;background:rgba(20,28,80,.93);color:#fff;font-size:11px;padding:7px 12px;border-radius:8px;pointer-events:none;z-index:600;max-width:240px;line-height:1.65;box-shadow:0 4px 18px rgba(0,0,0,.28);}
+#leg{position:absolute;bottom:30px;right:10px;z-index:400;background:rgba(255,255,255,.97);border-radius:10px;padding:10px 13px;box-shadow:0 2px 12px rgba(0,0,0,.13);max-width:175px;max-height:60vh;overflow-y:auto;}
+#leg.hide{display:none;}
+.ltitle{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
+.litem{display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:10px;color:var(--t2);}
+.lsw{width:13px;height:13px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.1);}
+.ldot2{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);}
+.lln{width:16px;height:0;flex-shrink:0;}
+.ldsh{width:16px;height:0;border-top:2px dashed #999;flex-shrink:0;}
+#sbar{position:absolute;bottom:8px;left:10px;z-index:400;background:rgba(255,255,255,.93);border-radius:6px;padding:4px 11px;font-size:10px;color:var(--t2);box-shadow:0 1px 6px rgba(0,0,0,.1);}
+.fac-popup{font-size:12px;line-height:1.6;}
+.fac-popup b{color:var(--p);}
+.fac-popup .pill{display:inline-block;font-size:9px;padding:1px 7px;border-radius:10px;background:#eef1ff;color:var(--p);font-weight:600;margin-top:3px;}
+.fac-popup .stt{display:inline-block;font-size:9px;padding:1px 7px;border-radius:10px;font-weight:600;margin-top:3px;}
+</style>
+</head>
+<body>
+<div id="loadmask">
+  <div class="spinner"></div>
+  <div class="load-txt">Loading Varanasi GIS Map...</div>
+  <div class="load-sub" id="load-step">Initializing...</div>
+</div>
+<div id="hdr">
+  <h1>🗺️ Varanasi District — GIS Map</h1>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="hbadge"><div class="ldot"></div>Live Data Ready</div>
+    <span id="updt">Loading...</span>
+  </div>
+</div>
+<div id="app">
+<div id="sb">
+  <div class="tabs">
+    <div class="tab act" onclick="goTab('layers',this)">🗂️ Layers</div>
+    <div class="tab" onclick="goTab('fac',this)">🏥 Facilities</div>
+    <div class="tab" onclick="goTab('info',this)">ℹ️ Info</div>
+  </div>
+
+  <!-- LAYERS TAB -->
+  <div id="tc-layers" class="tc act">
+    <div class="sec">
+      <div class="stitle">Base Layers</div>
+      <div class="trow"><div class="tl"><div class="ti" style="background:#e3f2fd;">🗺️</div><div><div class="tnm">Block Boundaries</div><div class="tsb">8 Blocks of Varanasi</div></div></div><label class="sw"><input type="checkbox" id="chk-block" checked onchange="togLayer('block',this.checked)"/><span class="sl"></span></label></div>
+      <div class="trow"><div class="tl"><div class="ti" style="background:#fce4ec;">🏙️</div><div><div class="tnm">Ward Boundaries</div><div class="tsb">102 Municipal Wards</div></div></div><label class="sw"><input type="checkbox" id="chk-ward" onchange="togLayer('ward',this.checked)"/><span class="sl"></span></label></div>
+      <div class="trow"><div class="tl"><div class="ti" style="background:#fff8e1;">🏷️</div><div><div class="tnm">Ward Labels</div><div class="tsb">Ward numbers on map</div></div></div><label class="sw"><input type="checkbox" id="chk-wlbl" onchange="togWardLabels(this.checked)"/><span class="sl"></span></label></div>
+      <div class="trow"><div class="tl"><div class="ti" style="background:#e8f5e9;">🔖</div><div><div class="tnm">Block Labels</div><div class="tsb">Block names on map</div></div></div><label class="sw"><input type="checkbox" id="chk-blbl" checked onchange="togBlockLabels(this.checked)"/><span class="sl"></span></label></div>
+      <div class="trow"><div class="tl"><div class="ti" style="background:#fff3e0;">🏷️</div><div><div class="tnm">GP Labels</div><div class="tsb">Gram Panchayat names</div></div></div><label class="sw"><input type="checkbox" id="chk-gplbl" onchange="togGPLabels(this.checked)"/><span class="sl"></span></label></div>
+      <div class="trow"><div class="tl"><div class="ti" style="background:#ede7f6;">🗒️</div><div><div class="tnm">Show Legend</div><div class="tsb">Map legend panel</div></div></div><label class="sw"><input type="checkbox" id="chk-legend" checked onchange="togLegend(this.checked)"/><span class="sl"></span></label></div>
+      <div style="margin-top:8px;"><div style="font-size:10px;color:var(--t3);margin-bottom:5px;font-weight:600;">Base Map</div>
+        <select id="sel-bg" onchange="changeBg(this.value)" style="width:100%;font-size:11px;padding:5px 8px;border:1px solid var(--bd);border-radius:6px;color:var(--t);background:#fff;cursor:pointer;outline:none;">
+          <option value="carto">Light (CartoDB)</option><option value="osm">OpenStreetMap</option><option value="sat">Satellite (Esri)</option><option value="dark">Dark (CartoDB)</option><option value="blank">Blank White</option>
+        </select>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="stitle">Block Fill Color</div>
+      <div class="slider-row"><span class="slider-lbl">Fill Opacity</span><input type="range" class="slider" id="sl-opacity" min="0" max="100" value="18" oninput="updateOpacity(this.value)"/><span class="slider-val" id="sl-val">18%</span></div>
+      <button class="btn btn-o" id="fill-btn" onclick="toggleFill()" style="margin-bottom:8px;">🎨 Disable Fill Colors</button>
+      <div id="bclr-list"></div>
+    </div>
+    <div class="sec">
+      <div class="stitle">🧭 Block Filter (Boundary + Facilities)</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;line-height:1.5;">Turn a block OFF to hide its boundary AND its facilities. The urban entry is linked to Ward Boundaries. Default: all ON.</div>
+      <div id="block-filter-list"></div>
+      <div class="btn-row" style="margin-top:8px;"><button class="btn btn-o btn-sm" onclick="allBlockFilter(true)">✅ All ON</button><button class="btn btn-o btn-sm" onclick="allBlockFilter(false)">❌ All OFF</button></div>
+    </div>
+    <div class="sec">
+      <div class="stitle">Gram Panchayat — Block Wise</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;line-height:1.5;">Toggle GP boundaries block-by-block ↓</div>
+      <div id="block-tog-list"></div>
+      <div class="btn-row" style="margin-top:8px;"><button class="btn btn-o btn-sm" onclick="allGP(true)">✅ All ON</button><button class="btn btn-o btn-sm" onclick="allGP(false)">❌ All OFF</button></div>
+    </div>
+  </div>
+
+  <!-- FACILITIES TAB -->
+  <div id="tc-fac" class="tc">
+    <div class="sec">
+      <div class="stitle">Health Facilities — Live</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;line-height:1.6;">Connect the facility Google Sheet. Markers update live when you add/edit/delete rows and reconnect or auto-refresh.</div>
+      <input class="inp" id="fac-sid" placeholder="Facility Sheet ID..." value="1mCrjLIjRGzNwLyj8TwTxXWti-iyib-kOmPp5ywM_2X8"/>
+      <button class="btn" onclick="loadFacilities()">🔄 Load / Refresh Facilities</button>
+      <div id="fac-alert" class="alert"></div>
+      <div class="trow" style="margin-top:8px;"><div class="tl"><div class="ti" style="background:#e8f5e9;">🔄</div><div><div class="tnm">Auto Refresh</div><div class="tsb">Every 2 minutes</div></div></div><label class="sw"><input type="checkbox" id="chk-facrf" onchange="setFacAR(this.checked)"/><span class="sl"></span></label></div>
+      <div class="trow"><div class="tl"><div class="ti" style="background:#ffebee;">⚠️</div><div><div class="tnm">Hide Inactive</div><div class="tsb">Only show active facilities</div></div></div><label class="sw"><input type="checkbox" id="chk-active" checked onchange="renderFac()"/><span class="sl"></span></label></div>
+    </div>
+    <div class="sec">
+      <div class="stitle">Facility Type → Classification</div>
+      <div class="btn-row" style="margin-bottom:9px;"><button class="btn btn-o btn-sm" onclick="allFac(true)">✅ All ON</button><button class="btn btn-o btn-sm" onclick="allFac(false)">❌ All OFF</button></div>
+      <div id="fac-tree"><div style="font-size:10px;color:var(--t3);text-align:center;padding:14px;">Click "Load Facilities" to begin</div></div>
+    </div>
+    <div class="sec">
+      <div class="stitle">🎨 Marker Style (per Type)</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:9px;line-height:1.5;">Change icon shape, colour &amp; size for each facility type.</div>
+      <div id="fac-style"><div style="font-size:10px;color:var(--t3);text-align:center;padding:10px;">Load facilities first</div></div>
+    </div>
+  </div>
+
+  <!-- INFO TAB -->
+  <div id="tc-info" class="tc">
+    <div class="sec">
+      <div id="info-ph" style="text-align:center;padding:30px 12px;color:var(--t3);">
+        <div style="font-size:34px;margin-bottom:10px;">🖱️</div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Click on a Block</div>
+        <div style="font-size:10px;line-height:1.6;">Click any block on the map to see its details and Gram Panchayat list.</div>
+      </div>
+      <div id="info-det" style="display:none;">
+        <div class="iname" id="i-name"></div><div class="isub" id="i-sub"></div>
+        <div class="sgrid" id="i-stats"></div>
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;">Gram Panchayats</div>
+        <div class="gp-grid" id="i-gps"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ma">
+  <div id="lmap"></div>
+  <div id="tp"></div>
+  <div id="leg">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span class="ltitle" style="margin:0;">Legend</span><span style="font-size:11px;color:var(--t3);cursor:pointer;padding:0 2px;" onclick="document.getElementById('chk-legend').click()">✕</span></div>
+    <div id="leg-blocks"></div>
+    <div style="height:1px;background:#eee;margin:6px 0;"></div>
+    <div class="litem"><div class="lln" style="border-top:2px solid #1a237e;"></div>Block Boundary</div>
+    <div class="litem"><div class="ldsh"></div>GP Boundary</div>
+    <div class="litem"><div class="lln" style="border-top:2px solid #e53935;"></div>Ward Boundary</div>
+    <div id="leg-fac"></div>
+  </div>
+  <div id="sbar">📍 Varanasi District &nbsp;|&nbsp; 8 Blocks &nbsp;|&nbsp; 763 GPs &nbsp;|&nbsp; 102 Wards</div>
+</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="vns_block.js"></script>
+<script src="vns_ward.js"></script>
+<script src="vns_gp.js"></script>
+<script>
+var BCOLORS={"Arajiline":"#e57373","Baragaon":"#64b5f6","Chirai Gaon":"#81c784","Cholapur":"#ffb74d","Harhua":"#ba68c8","Kashi Vidya Peeth":"#4db6ac","Pindra":"#f06292","Sevapuri":"#aed581"};
+var BNAMES=Object.keys(BCOLORS);
+var fillOn=true,fillOp=0.18,CURBLK=null;
+var GP_COUNT={};BNAMES.forEach(function(b){GP_COUNT[b]=0;});
+var map,blockLyr,wardLyr,gpLyrs={},blblMks=[],gplblMks=[],wlblMks=[];
+var tileLyrs={},curTile=null,gpOn={};
+BNAMES.forEach(function(b){gpOn[b]=false;});
+var blockOn={};  // per-block visibility (boundary + facilities); default all ON
+BNAMES.forEach(function(b){blockOn[b]=true;});
+blockOn["Varanasi (Urban)"]=true;  // urban facilities, linked to Ward Boundary
+var URBAN_KEY="Varanasi (Urban)";
+
+// FACILITY state
+var FAC_RAW=[];           // all parsed facility objects
+var FAC_TYPES={};         // {type:{color,icon,enabled,classes:{cls:{enabled,count}},count}}
+var facLayer=null;        // L.layerGroup
+var FACRF=null;
+var TYPE_COLORS={CHC:"#d32f2f",PHC:"#1565c0",SC:"#2e7d32",DH:"#6a1b9a",MC:"#ef6c00",SH:"#c2185b"};
+var TYPE_ICON={CHC:"🏥",PHC:"⚕️",SC:"➕",DH:"🏨",MC:"🎓",SH:"🩺"};
+
+function setStep(s){document.getElementById('load-step').textContent=s;}
+
+function initMap(){
+  setStep('Counting GPs...');
+  GPGEO.features.forEach(function(f){var b=f.properties.block_name;if(b)GP_COUNT[b]=(GP_COUNT[b]||0)+1;});
+  setStep('Initializing map...');
+  map=L.map("lmap",{zoomControl:true}).setView([25.32,82.97],11);
+  tileLyrs={
+    carto:L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"CartoDB",maxZoom:19}),
+    osm:L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"OSM",maxZoom:19}),
+    sat:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{attribution:"Esri",maxZoom:18}),
+    dark:L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{attribution:"CartoDB",maxZoom:19}),
+    blank:L.tileLayer("",{attribution:"",maxZoom:19})
+  };
+  curTile=tileLyrs.carto;curTile.addTo(map);
+  facLayer=L.layerGroup().addTo(map);
+
+  setStep('Loading Ward layer...');
+  wardLyr=L.geoJSON(WGEO,{
+    style:function(){return{fillColor:"#ff8a80",weight:1,color:"#e53935",fillOpacity:.06,dashArray:"3 2",opacity:.8};},
+    onEachFeature:function(f,l){var p=f.properties;var wn=(p.W_Name||"").replace(/\r\n|\n/g,"").trim();
+      l.on({mouseover:function(e){l.setStyle({fillOpacity:.38,weight:2});showTip("<b>Ward "+p.W_NUM+"</b>"+(wn?" — "+wn:"")+"<br><small>Zone: "+(p.Zone_Name||"")+"</small>",e.originalEvent);},mouseout:function(){wardLyr.resetStyle(l);hideTip();}});}
+  });
+
+  setStep('Loading Block layer...');
+  blockLyr=L.geoJSON(BGEO,{
+    style:function(f){return blockStyle(f.properties.tehs_name);},
+    onEachFeature:function(f,lyr){var nm=f.properties.tehs_name;
+      lyr.on({click:function(e){L.DomEvent.stopPropagation(e);if(!blockOn[nm])return;selectBlock(nm,lyr);},
+        mouseover:function(e){if(!blockOn[nm])return;if(CURBLK!==nm)lyr.setStyle({fillOpacity:fillOn?Math.min(fillOp+.22,1):.12});showTip("<b>"+nm+" Block</b><br><small>"+GP_COUNT[nm]+" Gram Panchayats</small>",e.originalEvent);},
+        mouseout:function(){if(CURBLK!==nm)blockLyr.resetStyle(lyr);hideTip();}});}
+  }).addTo(map);
+
+  setStep('Loading GP layers...');
+  BNAMES.forEach(function(bnm){
+    var feats=GPGEO.features.filter(function(f){return f.properties.block_name===bnm;});
+    var col=BCOLORS[bnm]||"#999";
+    gpLyrs[bnm]=L.geoJSON({type:"FeatureCollection",features:feats},{
+      style:function(){return{fillColor:col,weight:1,color:"#444",fillOpacity:.08,dashArray:"4 3",opacity:.6};},
+      onEachFeature:function(f,l){var gp=f.properties.GP_NAME,hi=f.properties.GP_HINDI||"";
+        l.on({mouseover:function(e){l.setStyle({fillOpacity:.45,weight:2,dashArray:null});showTip("<b>"+gp+"</b>"+(hi?" <span style='opacity:.65;font-size:10px;'>"+hi+"</span>":"")+"<br><small>"+bnm+" Block</small>",e.originalEvent);},mouseout:function(){l.setStyle({fillOpacity:.08,weight:1,dashArray:"4 3"});hideTip();}});}
+    });
+  });
+
+  setStep('Building UI...');
+  buildBColorList();buildBlockTogList();buildBlockFilterList();buildBlockLabels();buildLegend();
+  map.on("click",function(){if(CURBLK){resetHL();CURBLK=null;showPH();}});
+  document.getElementById("updt").textContent="Ready";
+  document.getElementById("loadmask").classList.add("done");
+  // auto-load facilities on startup
+  setTimeout(loadFacilities,400);
+}
+
+// ---- LAYER TOGGLES ----
+function togLayer(which,on){
+  if(which==="block"){on?blockLyr.addTo(map):(map.hasLayer(blockLyr)&&map.removeLayer(blockLyr));}
+  if(which==="ward"){
+    on?wardLyr.addTo(map):(map.hasLayer(wardLyr)&&map.removeLayer(wardLyr));blockLyr.bringToFront();
+    // linked: ward boundary controls urban facilities too
+    blockOn[URBAN_KEY]=on;
+    var uchk=document.getElementById("bfc-urban");if(uchk)uchk.checked=on;
+    var urow=document.getElementById("bfrow-urban");if(urow)urow.classList.toggle("on",on);
+    renderFac();
+  }
+  bringFacFront();
+}
+function changeBg(v){map.removeLayer(curTile);curTile=tileLyrs[v]||tileLyrs.blank;curTile.addTo(map);if(map.hasLayer(wardLyr))wardLyr.bringToFront();BNAMES.forEach(function(b){if(gpOn[b]&&map.hasLayer(gpLyrs[b]))gpLyrs[b].bringToFront();});blockLyr.bringToFront();bringFacFront();}
+function bringFacFront(){if(facLayer)facLayer.eachLayer(function(l){if(l.bringToFront)l.bringToFront();});}
+
+// ---- FILL COLOR ----
+function updateOpacity(v){fillOp=v/100;document.getElementById("sl-val").textContent=v+"%";if(fillOn)applyBlockStyle();}
+function toggleFill(){fillOn=!fillOn;document.getElementById("fill-btn").textContent=fillOn?"🎨 Disable Fill Colors":"⬜ Enable Fill Colors";applyBlockStyle();buildLegend();}
+// central block style — respects per-block visibility (blockOn) + fill toggle
+function blockStyle(nm){
+  if(!blockOn[nm]) return {fillOpacity:0,opacity:0,weight:0}; // hidden
+  var col=fillOn?(BCOLORS[nm]||"#999"):"transparent";
+  return {fillColor:col,weight:1.5,color:"#1a237e",fillOpacity:fillOn?fillOp:0,opacity:1};
+}
+function applyBlockStyle(){blockLyr.setStyle(function(f){return blockStyle(f.properties.tehs_name);});}
+
+// ---- BLOCK FILTER (boundary + facilities) ----
+function buildBlockFilterList(){
+  var cont=document.getElementById("block-filter-list");if(!cont)return;cont.innerHTML="";
+  BNAMES.forEach(function(nm){
+    var col=BCOLORS[nm];
+    var id="bfrow-"+nm.replace(/\s/g,"_"),cid="bfc-"+nm.replace(/\s/g,"_");
+    var div=document.createElement("div");div.className="brow"+(blockOn[nm]?" on":"");div.id=id;
+    div.innerHTML='<div style="display:flex;align-items:center;flex:1;"><div class="bdot" style="background:'+col+'"></div><div class="bnm">'+nm+'</div></div>'
+      +'<label class="sw"><input type="checkbox" id="'+cid+'" '+(blockOn[nm]?"checked":"")+' onchange="togBlockFilter(\''+nm+'\',this.checked)"/><span class="sl"></span></label>';
+    cont.appendChild(div);
+  });
+  // Urban entry — linked to Ward Boundary (facilities fall within wards)
+  var urow=document.createElement("div");urow.className="brow"+(blockOn[URBAN_KEY]?" on":"");urow.id="bfrow-urban";
+  urow.innerHTML='<div style="display:flex;align-items:center;flex:1;"><div class="bdot" style="background:#e53935"></div><div class="bnm">Varanasi (Urban) <span style="font-size:8px;color:var(--t3);font-weight:600;">· WARDS</span></div></div>'
+    +'<label class="sw"><input type="checkbox" id="bfc-urban" '+(blockOn[URBAN_KEY]?"checked":"")+' onchange="togUrbanFilter(this.checked)"/><span class="sl"></span></label>';
+  cont.appendChild(urow);
+}
+function togUrbanFilter(on){
+  blockOn[URBAN_KEY]=on;
+  var row=document.getElementById("bfrow-urban");if(row)row.classList.toggle("on",on);
+  // linked: also show/hide the Ward Boundary layer to match
+  var wchk=document.getElementById("chk-ward");
+  if(wchk){wchk.checked=on;}
+  on?(map.hasLayer(wardLyr)||wardLyr.addTo(map)):(map.hasLayer(wardLyr)&&map.removeLayer(wardLyr));
+  blockLyr.bringToFront();
+  renderFac();bringFacFront();
+}
+function togBlockFilter(nm,on){
+  blockOn[nm]=on;
+  var row=document.getElementById("bfrow-"+nm.replace(/\s/g,"_"));if(row)row.classList.toggle("on",on);
+  if(!on && CURBLK===nm){CURBLK=null;showPH();}
+  applyBlockStyle();
+  if(!on && gpOn[nm] && map.hasLayer(gpLyrs[nm])) map.removeLayer(gpLyrs[nm]);
+  else if(on && gpOn[nm] && !map.hasLayer(gpLyrs[nm])) gpLyrs[nm].addTo(map);
+  rebuildGPL();
+  renderFac();
+  buildBlockLabels();
+  if(!document.getElementById("chk-blbl").checked) togBlockLabels(false);
+}
+function allBlockFilter(on){
+  BNAMES.forEach(function(nm){blockOn[nm]=on;var chk=document.getElementById("bfc-"+nm.replace(/\s/g,"_"));if(chk)chk.checked=on;var row=document.getElementById("bfrow-"+nm.replace(/\s/g,"_"));if(row)row.classList.toggle("on",on);});
+  // urban + ward link
+  blockOn[URBAN_KEY]=on;
+  var uchk=document.getElementById("bfc-urban");if(uchk)uchk.checked=on;
+  var urow=document.getElementById("bfrow-urban");if(urow)urow.classList.toggle("on",on);
+  var wchk=document.getElementById("chk-ward");if(wchk)wchk.checked=on;
+  on?(map.hasLayer(wardLyr)||wardLyr.addTo(map)):(map.hasLayer(wardLyr)&&map.removeLayer(wardLyr));
+  if(!on){CURBLK=null;showPH();}
+  applyBlockStyle();
+  BNAMES.forEach(function(nm){if(!blockOn[nm]&&map.hasLayer(gpLyrs[nm]))map.removeLayer(gpLyrs[nm]);else if(blockOn[nm]&&gpOn[nm]&&!map.hasLayer(gpLyrs[nm]))gpLyrs[nm].addTo(map);});
+  rebuildGPL();renderFac();buildBlockLabels();if(!document.getElementById("chk-blbl").checked)togBlockLabels(false);bringFacFront();
+}
+function changeBlockColor(bnm,color){BCOLORS[bnm]=color;blockLyr.eachLayer(function(l){if(l.feature&&l.feature.properties.tehs_name===bnm&&fillOn)l.setStyle({fillColor:color});});if(gpLyrs[bnm])gpLyrs[bnm].setStyle({fillColor:color});buildLegend();var d=document.getElementById("bdot-"+bnm.replace(/\s/g,"_"));if(d)d.style.background=color;var rd=document.querySelector("#brow-"+bnm.replace(/\s/g,"_")+" .bdot");if(rd)rd.style.background=color;}
+function buildBColorList(){var c=document.getElementById("bclr-list");c.innerHTML="";BNAMES.forEach(function(nm){var col=BCOLORS[nm];var r=document.createElement("div");r.style.cssText="display:flex;align-items:center;margin-bottom:5px;gap:6px;";r.innerHTML='<div id="bdot-'+nm.replace(/\s/g,"_")+'" style="width:9px;height:9px;border-radius:50%;background:'+col+';flex-shrink:0;"></div><span style="font-size:11px;font-weight:600;color:var(--t);flex:1;">'+nm+'</span><input type="color" class="cpick" value="'+col+'" title="'+nm+'" oninput="changeBlockColor(\''+nm+'\',this.value);"/>';c.appendChild(r);});}
+
+// ---- GP TOGGLES ----
+function togGPForBlock(bnm,on){gpOn[bnm]=on;if(on){if(blockOn[bnm]===false){facAlertGP(bnm);}if(blockOn[bnm]!==false&&!map.hasLayer(gpLyrs[bnm])){gpLyrs[bnm].addTo(map);blockLyr.bringToFront();bringFacFront();}}else{map.hasLayer(gpLyrs[bnm])&&map.removeLayer(gpLyrs[bnm]);}var row=document.getElementById("brow-"+bnm.replace(/\s/g,"_"));if(row)row.classList.toggle("on",on);rebuildGPL();}
+function facAlertGP(bnm){/* block is filtered off; GP stays hidden until block re-enabled */}
+function allGP(on){BNAMES.forEach(function(b){var chk=document.getElementById("gpc-"+b.replace(/\s/g,"_"));if(chk){chk.checked=on;togGPForBlock(b,on);}});}
+
+// ---- LABELS ----
+function centroid(coords){var pts=[];function collect(a){if(typeof a[0][0]==="number")a.forEach(function(p){pts.push(p);});else a.forEach(collect);}collect(coords);return[pts.reduce(function(a,p){return a+p[1];},0)/pts.length,pts.reduce(function(a,p){return a+p[0];},0)/pts.length];}
+function buildBlockLabels(){blblMks.forEach(function(m){map.hasLayer(m)&&map.removeLayer(m);});blblMks=[];BGEO.features.forEach(function(f){var nm=f.properties.tehs_name;if(blockOn[nm]===false)return;var c=centroid(f.geometry.coordinates);var ic=L.divIcon({className:"",html:'<div style="font-size:11px;font-weight:700;color:#1a237e;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;white-space:nowrap;pointer-events:none;">'+nm+'</div>',iconSize:null,iconAnchor:null});var m=L.marker(c,{icon:ic,interactive:false,zIndexOffset:-100});m.addTo(map);blblMks.push(m);});}
+function togBlockLabels(on){blblMks.forEach(function(m){on?(!map.hasLayer(m)&&m.addTo(map)):(map.hasLayer(m)&&map.removeLayer(m));});}
+function buildGPLabels(){gplblMks.forEach(function(m){map.hasLayer(m)&&map.removeLayer(m);});gplblMks=[];GPGEO.features.forEach(function(f){if(!gpOn[f.properties.block_name])return;if(blockOn[f.properties.block_name]===false)return;var c=centroid(f.geometry.coordinates);var ic=L.divIcon({className:"",html:'<div style="font-size:7px;font-weight:600;color:#222;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff;white-space:nowrap;pointer-events:none;opacity:.85;">'+f.properties.GP_NAME+'</div>',iconSize:null,iconAnchor:null});var m=L.marker(c,{icon:ic,interactive:false,zIndexOffset:-200});m.addTo(map);gplblMks.push(m);});}
+function rebuildGPL(){if(document.getElementById("chk-gplbl").checked)buildGPLabels();}
+function togGPLabels(on){if(on){buildGPLabels();}else{gplblMks.forEach(function(m){map.hasLayer(m)&&map.removeLayer(m);});gplblMks=[];}}
+function buildWardLabels(){wlblMks.forEach(function(m){map.hasLayer(m)&&map.removeLayer(m);});wlblMks=[];if(!map.hasLayer(wardLyr))return;WGEO.features.forEach(function(f){var p=f.properties;var wn=(p.W_Name||"").replace(/\r\n|\n/g,"").trim();var lbl="W-"+p.W_NUM+(wn?" "+wn:"");var c=centroid(f.geometry.coordinates);var ic=L.divIcon({className:"",html:'<div style="font-size:7px;font-weight:700;color:#c62828;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff;white-space:nowrap;pointer-events:none;opacity:.9;">'+lbl+'</div>',iconSize:null,iconAnchor:null});var m=L.marker(c,{icon:ic,interactive:false,zIndexOffset:-150});m.addTo(map);wlblMks.push(m);});}
+function togWardLabels(on){if(on){if(!map.hasLayer(wardLyr)){document.getElementById("chk-ward").checked=true;togLayer("ward",true);}buildWardLabels();}else{wlblMks.forEach(function(m){map.hasLayer(m)&&map.removeLayer(m);});wlblMks=[];}}
+
+// ---- BLOCK TOG LIST ----
+function buildBlockTogList(){var cont=document.getElementById("block-tog-list");cont.innerHTML="";BNAMES.forEach(function(nm){var col=BCOLORS[nm],gpc=GP_COUNT[nm]||0;var id="brow-"+nm.replace(/\s/g,"_"),cid="gpc-"+nm.replace(/\s/g,"_");var div=document.createElement("div");div.className="brow";div.id=id;div.innerHTML='<div style="display:flex;align-items:center;flex:1;"><div class="bdot" style="background:'+col+'"></div><div class="bnm">'+nm+'</div><div class="bgpc">'+gpc+' GPs</div></div><label class="sw"><input type="checkbox" id="'+cid+'" onchange="togGPForBlock(\''+nm+'\',this.checked)"/><span class="sl"></span></label>';cont.appendChild(div);});}
+
+// ---- LEGEND ----
+function buildLegend(){var cont=document.getElementById("leg-blocks");cont.innerHTML='<div class="ltitle" style="margin-bottom:5px;">Blocks</div>';BNAMES.forEach(function(nm){var d=document.createElement("div");d.className="litem";var col=fillOn?BCOLORS[nm]:"#ccc";d.innerHTML='<div class="lsw" style="background:'+col+';"></div><span>'+nm+'</span>';cont.appendChild(d);});buildFacLegend();}
+function buildFacLegend(){var el=document.getElementById("leg-fac");if(!el)return;var active=Object.keys(FAC_TYPES).filter(function(t){return FAC_TYPES[t].enabled;});if(!active.length){el.innerHTML="";return;}var h='<div style="height:1px;background:#eee;margin:6px 0;"></div><div class="ltitle" style="margin-bottom:5px;">Facilities</div>';active.forEach(function(t){h+='<div class="litem"><div class="ldot2" style="background:'+FAC_TYPES[t].color+';"></div><span>'+t+' ('+FAC_TYPES[t].shownCount+')</span></div>';});el.innerHTML=h;}
+function togLegend(on){document.getElementById("leg").classList.toggle("hide",!on);}
+
+// ---- SELECT BLOCK ----
+function resetHL(){blockLyr.setStyle(function(f){var col=fillOn?(BCOLORS[f.properties.tehs_name]||"#999"):"transparent";return{fillColor:col,weight:1.5,color:"#1a237e",fillOpacity:fillOn?fillOp:0};});}
+function selectBlock(nm,lyr){CURBLK=nm;resetHL();lyr.setStyle({weight:3,color:"#e53935",fillOpacity:Math.max(fillOp,.35),fillColor:BCOLORS[nm]||"#999"});goTab("info",null);showBlockInfo(nm);}
+function showBlockInfo(nm){document.getElementById("i-name").textContent=nm+" Block";document.getElementById("i-sub").textContent="Varanasi District  |  "+(GP_COUNT[nm]||0)+" Gram Panchayats";var sg=document.getElementById("i-stats");sg.innerHTML="";
+  // Facility counts for this block
+  var fc={};FAC_RAW.forEach(function(f){if(f.block===nm){fc[f.type]=(fc[f.type]||0)+1;}});
+  var keys=Object.keys(fc);
+  if(keys.length){keys.forEach(function(t){var d=document.createElement("div");d.className="sbox";d.innerHTML='<div class="sv">'+fc[t]+'</div><div class="sl2">'+(TYPE_ICON[t]||"📍")+' '+t+'</div>';sg.appendChild(d);});}
+  else{sg.innerHTML='<div style="grid-column:1/-1;font-size:10px;color:var(--t3);text-align:center;padding:6px;">Load facilities to see counts</div>';}
+  var gl=document.getElementById("i-gps");gl.innerHTML="";GPGEO.features.filter(function(f){return f.properties.block_name===nm;}).forEach(function(f){var d=document.createElement("div");d.className="gp-item";d.title=f.properties.GP_HINDI||"";d.textContent=f.properties.GP_NAME;gl.appendChild(d);});
+  document.getElementById("info-ph").style.display="none";document.getElementById("info-det").style.display="block";}
+function showPH(){document.getElementById("info-ph").style.display="block";document.getElementById("info-det").style.display="none";}
+
+// ---- TOOLTIP ----
+function showTip(html,e){var t=document.getElementById("tp");t.innerHTML=html;t.style.display="block";var r=document.getElementById("ma").getBoundingClientRect();t.style.left=(e.clientX-r.left+14)+"px";t.style.top=(e.clientY-r.top-55)+"px";}
+function hideTip(){document.getElementById("tp").style.display="none";}
+
+// ---- TABS ----
+function goTab(id,el){document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("act");});document.querySelectorAll(".tc").forEach(function(t){t.classList.remove("act");});document.getElementById("tc-"+id).classList.add("act");["layers","fac","info"].forEach(function(n,i){if(n===id)document.querySelectorAll(".tab")[i].classList.add("act");});}
+
+// =====================================================
+//  FACILITIES — load, parse, render, hierarchical filter
+// =====================================================
+function facAlert(msg,type){var el=document.getElementById("fac-alert");el.className="alert show "+type;el.textContent=msg;}
+
+// CSV parser handling quoted fields with commas
+function parseCSVLine(line){
+  var out=[],cur="",q=false;
+  for(var i=0;i<line.length;i++){
+    var ch=line[i];
+    if(q){
+      if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"')q=true;
+      else if(ch===','){out.push(cur);cur="";}
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+// Uses JSONP (script tag) instead of fetch() so it works even from file:// (no CORS block)
+var _facTimeout=null;
+function loadFacilities(){
+  var sid=document.getElementById("fac-sid").value.trim();
+  if(!sid){facAlert("Enter the facility Sheet ID","warn");return;}
+  facAlert("Loading facilities...","info");
+  // remove previous script tag if any
+  var old=document.getElementById("gviz-fac-script");
+  if(old)old.parentNode.removeChild(old);
+  // global callback that gviz will invoke
+  window.gvizFacCallback=function(resp){
+    if(_facTimeout){clearTimeout(_facTimeout);_facTimeout=null;}
+    try{
+      if(!resp||!resp.table){facAlert("Sheet loaded but no table data found.","err");return;}
+      parseGvizFacilities(resp);
+      facAlert("Loaded "+FAC_RAW.length+" facilities, "+Object.keys(FAC_TYPES).length+" types.","ok");
+      document.getElementById("updt").textContent="Facilities: "+new Date().toLocaleTimeString("en-IN");
+    }catch(err){facAlert("Parse error: "+err.message,"err");}
+  };
+  var url="https://docs.google.com/spreadsheets/d/"+sid
+    +"/gviz/tq?tqx=responseHandler:gvizFacCallback&headers=1";
+  var s=document.createElement("script");
+  s.id="gviz-fac-script";s.src=url;
+  s.onerror=function(){facAlert("Could not load sheet. Check Sheet ID and that sharing = Anyone with link (Viewer).","err");};
+  document.body.appendChild(s);
+  // timeout safety
+  _facTimeout=setTimeout(function(){facAlert("Timed out. Check Sheet ID / internet / sharing settings.","err");},15000);
+}
+
+// gviz JSON: resp.table.cols[] and resp.table.rows[] where row.c[i].v is the value
+function gvCell(row,i){var x=row.c[i];return (x&&x.v!=null)?x.v:"";}
+function parseGvizFacilities(resp){
+  // Column indices (0-based): I=8 Block,K=10 Village,M=12 Code,N=13 Name,O=14 Type,P=15 Class,Q=16 U/R,R=17 Lat,S=18 Lng,T=19 Status
+  var IDX={block:8,village:10,fcode:12,name:13,type:14,cls:15,ur:16,lat:17,lng:18,status:19};
+  var rows=resp.table.rows||[];
+  // preserve previous enable states + marker styles across refreshes
+  var prevEnabled={};Object.keys(FAC_TYPES).forEach(function(t){prevEnabled[t]={en:FAC_TYPES[t].enabled,color:FAC_TYPES[t].color,size:FAC_TYPES[t].size,shape:FAC_TYPES[t].shape,cls:{}};Object.keys(FAC_TYPES[t].classes).forEach(function(c){prevEnabled[t].cls[c]=FAC_TYPES[t].classes[c].enabled;});});
+  FAC_RAW=[];FAC_TYPES={};
+  rows.forEach(function(row){
+    if(!row||!row.c)return;
+    var lat=parseFloat(gvCell(row,IDX.lat)),lng=parseFloat(gvCell(row,IDX.lng));
+    if(isNaN(lat)||isNaN(lng)||lat<24||lat>26||lng<82||lng>84)return;
+    var type=(""+gvCell(row,IDX.type)).trim();
+    var cls=(""+gvCell(row,IDX.cls)).trim()||"(Unspecified)";
+    if(!type)return;
+    var obj={name:(""+gvCell(row,IDX.name)).trim(),type:type,cls:cls,
+      block:(""+gvCell(row,IDX.block)).trim(),village:(""+gvCell(row,IDX.village)).trim(),
+      ur:(""+gvCell(row,IDX.ur)).trim(),lat:lat,lng:lng,
+      status:(""+gvCell(row,IDX.status)).trim(),fcode:(""+gvCell(row,IDX.fcode)).trim()};
+    FAC_RAW.push(obj);
+    if(!FAC_TYPES[type]){FAC_TYPES[type]={color:(prevEnabled[type]&&prevEnabled[type].color)||TYPE_COLORS[type]||"#555",icon:TYPE_ICON[type]||"📍",size:(prevEnabled[type]&&prevEnabled[type].size)||12,shape:(prevEnabled[type]&&prevEnabled[type].shape)||"circle",enabled:prevEnabled[type]?prevEnabled[type].en:true,classes:{},count:0,shownCount:0};}
+    FAC_TYPES[type].count++;
+    if(!FAC_TYPES[type].classes[cls]){var pe=prevEnabled[type]&&prevEnabled[type].cls[cls];FAC_TYPES[type].classes[cls]={enabled:pe!==undefined?pe:true,count:0};}
+    FAC_TYPES[type].classes[cls].count++;
+  });
+  buildFacTree();
+  buildFacStyleControls();
+  renderFac();
+}
+
+function buildFacTree(){
+  var cont=document.getElementById("fac-tree");
+  var types=Object.keys(FAC_TYPES).sort();
+  if(!types.length){cont.innerHTML='<div style="font-size:10px;color:var(--t3);text-align:center;padding:14px;">No facilities found</div>';return;}
+  cont.innerHTML="";
+  types.forEach(function(t){
+    var T=FAC_TYPES[t];
+    var box=document.createElement("div");
+    box.className="ftype"+(T.enabled?" on":"");box.id="ftype-"+t;
+    var classes=Object.keys(T.classes).sort();
+    var clsHtml="";
+    classes.forEach(function(cl){
+      var C=T.classes[cl];
+      var cid="fcls-"+t+"-"+cl.replace(/[^a-zA-Z0-9]/g,"_");
+      clsHtml+='<div class="fclass"><span class="fclass-nm"><span class="fclass-ct">'+C.count+'</span>'+cl+'</span>'
+        +'<label class="mini-sw"><input type="checkbox" id="'+cid+'" '+(C.enabled?"checked":"")+' onchange="togFacClass(\''+t+'\',\''+cl.replace(/'/g,"\\'")+'\',this.checked)"/><span class="mini-sl"></span></label></div>';
+    });
+    box.innerHTML='<div class="ftype-hd" onclick="expandType(\''+t+'\',event)">'
+      +'<div class="ftype-dot" style="background:'+T.color+';"></div>'
+      +'<span class="ftype-nm">'+T.icon+' '+t+'</span>'
+      +'<span class="ftype-ct">'+T.count+'</span>'
+      +'<label class="sw" onclick="event.stopPropagation()"><input type="checkbox" id="ftypechk-'+t+'" '+(T.enabled?"checked":"")+' onchange="togFacType(\''+t+'\',this.checked)"/><span class="sl"></span></label>'
+      +'<span class="ftype-exp">▶</span></div>'
+      +'<div class="fclass-list">'+clsHtml+'</div>';
+    cont.appendChild(box);
+  });
+}
+function expandType(t,e){if(e&&e.target&&(e.target.tagName==="INPUT"||e.target.className.indexOf("sl")>=0))return;document.getElementById("ftype-"+t).classList.toggle("expanded");}
+function togFacType(t,on){FAC_TYPES[t].enabled=on;document.getElementById("ftype-"+t).classList.toggle("on",on);renderFac();}
+function togFacClass(t,cl,on){FAC_TYPES[t].classes[cl].enabled=on;
+  // if any class on, ensure type considered; but keep type master independent
+  renderFac();
+}
+function allFac(on){Object.keys(FAC_TYPES).forEach(function(t){FAC_TYPES[t].enabled=on;var mc=document.getElementById("ftypechk-"+t);if(mc)mc.checked=on;document.getElementById("ftype-"+t)&&document.getElementById("ftype-"+t).classList.toggle("on",on);Object.keys(FAC_TYPES[t].classes).forEach(function(cl){FAC_TYPES[t].classes[cl].enabled=on;var cid="fcls-"+t+"-"+cl.replace(/[^a-zA-Z0-9]/g,"_");var el=document.getElementById(cid);if(el)el.checked=on;});});renderFac();}
+
+// ---- Marker icon builder: supports shapes + emoji, custom color & size ----
+var SHAPE_OPTIONS=[
+  {v:"circle",label:"● Circle"},{v:"square",label:"■ Square"},{v:"diamond",label:"◆ Diamond"},
+  {v:"triangle",label:"▲ Triangle"},{v:"plus",label:"✚ Plus"},{v:"star",label:"★ Star"},
+  {v:"pin",label:"📍 Pin"},{v:"ring",label:"◎ Ring"},
+  {v:"e_hospital",label:"🏥 Hospital"},{v:"e_cross",label:"➕ Red Cross"},{v:"e_pill",label:"💊 Pill"},
+  {v:"e_stethoscope",label:"🩺 Stethoscope"},{v:"e_ambulance",label:"🚑 Ambulance"},{v:"e_flag",label:"🚩 Flag"}
+];
+var EMOJI_MAP={e_hospital:"🏥",e_cross:"➕",e_pill:"💊",e_stethoscope:"🩺",e_ambulance:"🚑",e_flag:"🚩"};
+
+function makeFacIcon(type,inactive){
+  var T=FAC_TYPES[type];
+  var col=T.color,sz=T.size||12,shape=T.shape||"circle";
+  var op=inactive?0.5:1;
+  var html,anchor=[sz/2,sz/2];
+  if(shape.indexOf("e_")===0){
+    // emoji icon
+    html='<div style="font-size:'+sz+'px;line-height:'+sz+'px;opacity:'+op+';text-shadow:0 0 2px #fff,0 0 2px #fff;">'+(EMOJI_MAP[shape]||"📍")+'</div>';
+  } else if(shape==="circle"){
+    html='<div style="width:'+sz+'px;height:'+sz+'px;background:'+col+';border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.3);opacity:'+op+';"></div>';
+  } else if(shape==="square"){
+    html='<div style="width:'+sz+'px;height:'+sz+'px;background:'+col+';border:2px solid #fff;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.3);opacity:'+op+';"></div>';
+  } else if(shape==="diamond"){
+    html='<div style="width:'+sz+'px;height:'+sz+'px;background:'+col+';border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3);transform:rotate(45deg);opacity:'+op+';"></div>';
+  } else if(shape==="ring"){
+    html='<div style="width:'+sz+'px;height:'+sz+'px;background:transparent;border:3px solid '+col+';border-radius:50%;box-shadow:0 0 0 1px #fff;opacity:'+op+';"></div>';
+  } else if(shape==="triangle"){
+    var h=sz; html='<div style="width:0;height:0;border-left:'+(h/2)+'px solid transparent;border-right:'+(h/2)+'px solid transparent;border-bottom:'+h+'px solid '+col+';filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);opacity:'+op+';"></div>';
+    anchor=[sz/2,sz];
+  } else if(shape==="plus"){
+    html='<div style="position:relative;width:'+sz+'px;height:'+sz+'px;opacity:'+op+';">'
+      +'<div style="position:absolute;left:'+(sz*0.35)+'px;top:0;width:'+(sz*0.3)+'px;height:'+sz+'px;background:'+col+';border:1px solid #fff;"></div>'
+      +'<div style="position:absolute;top:'+(sz*0.35)+'px;left:0;height:'+(sz*0.3)+'px;width:'+sz+'px;background:'+col+';border:1px solid #fff;"></div></div>';
+  } else if(shape==="star"){
+    html='<div style="font-size:'+sz+'px;line-height:'+sz+'px;color:'+col+';text-shadow:0 0 2px #fff,0 0 1px #fff,1px 1px 0 #fff,-1px -1px 0 #fff;opacity:'+op+';">★</div>';
+  } else if(shape==="pin"){
+    html='<div style="width:'+sz+'px;height:'+sz+'px;background:'+col+';border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 0 0 1px rgba(0,0,0,.3);opacity:'+op+';"></div>';
+    anchor=[sz/2,sz];
+  } else {
+    html='<div style="width:'+sz+'px;height:'+sz+'px;background:'+col+';border:2px solid #fff;border-radius:50%;opacity:'+op+';"></div>';
+  }
+  return L.divIcon({html:html,className:"fac-divicon",iconSize:[sz,sz],iconAnchor:anchor});
+}
+
+// ---- Marker style customization UI ----
+function buildFacStyleControls(){
+  var cont=document.getElementById("fac-style");
+  if(!cont)return;
+  var types=Object.keys(FAC_TYPES).sort();
+  if(!types.length){cont.innerHTML='<div style="font-size:10px;color:var(--t3);text-align:center;padding:10px;">Load facilities first</div>';return;}
+  var shapeOpts=SHAPE_OPTIONS.map(function(s){return s;});
+  cont.innerHTML="";
+  types.forEach(function(t){
+    var T=FAC_TYPES[t];
+    var safe=t.replace(/[^a-zA-Z0-9]/g,"_");
+    var sel='<select onchange="setFacShape(\''+t+'\',this.value)" style="font-size:10px;padding:3px 4px;border:1px solid var(--bd);border-radius:5px;background:#fff;cursor:pointer;outline:none;flex:1;">';
+    shapeOpts.forEach(function(s){sel+='<option value="'+s.v+'"'+(T.shape===s.v?" selected":"")+'>'+s.label+'</option>';});
+    sel+='</select>';
+    var row=document.createElement("div");
+    row.style.cssText="border:1px solid #f0f0f0;border-radius:8px;padding:8px;margin-bottom:7px;background:#fafafa;";
+    row.innerHTML=
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+        +'<div id="fpv-'+safe+'" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>'
+        +'<span style="font-size:11px;font-weight:700;color:var(--t);flex:1;">'+(T.icon||"")+' '+t+'</span>'
+        +'<input type="color" value="'+T.color+'" title="Color" oninput="setFacColor(\''+t+'\',this.value)" style="width:24px;height:24px;border:1.5px solid #ddd;border-radius:5px;padding:1px;cursor:pointer;flex-shrink:0;"/>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px;">'+sel+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">'
+        +'<span style="font-size:10px;color:var(--t3);min-width:30px;">Size</span>'
+        +'<input type="range" class="slider" min="8" max="32" value="'+(T.size||12)+'" oninput="setFacSize(\''+t+'\',this.value)" style="flex:1;"/>'
+        +'<span id="fsz-'+safe+'" style="font-size:10px;color:var(--p);font-weight:700;min-width:30px;text-align:right;">'+(T.size||12)+'px</span>'
+      +'</div>';
+    cont.appendChild(row);
+    updateStylePreview(t);
+  });
+}
+function updateStylePreview(t){
+  var safe=t.replace(/[^a-zA-Z0-9]/g,"_");
+  var pv=document.getElementById("fpv-"+safe);
+  if(!pv)return;
+  var ic=makeFacIcon(t,false);
+  pv.innerHTML='<div style="transform:scale('+Math.min(1,16/(FAC_TYPES[t].size||12))+');">'+ic.options.html+'</div>';
+}
+function setFacColor(t,v){FAC_TYPES[t].color=v;updateStylePreview(t);renderFac();
+  // update the dot in the filter tree + legend
+  var dot=document.querySelector("#ftype-"+t+" .ftype-dot");if(dot)dot.style.background=v;
+}
+function setFacSize(t,v){FAC_TYPES[t].size=parseInt(v,10);var safe=t.replace(/[^a-zA-Z0-9]/g,"_");var lbl=document.getElementById("fsz-"+safe);if(lbl)lbl.textContent=v+"px";updateStylePreview(t);renderFac();}
+function setFacShape(t,v){FAC_TYPES[t].shape=v;updateStylePreview(t);renderFac();}
+
+function renderFac(){
+  if(!facLayer)return;
+  facLayer.clearLayers();
+  var hideInactive=document.getElementById("chk-active").checked;
+  Object.keys(FAC_TYPES).forEach(function(t){FAC_TYPES[t].shownCount=0;});
+  FAC_RAW.forEach(function(f){
+    var T=FAC_TYPES[f.type];if(!T||!T.enabled)return;
+    if(!T.classes[f.cls]||!T.classes[f.cls].enabled)return;
+    if(hideInactive && f.status && f.status.toLowerCase()!=="active")return;
+    if(f.block && blockOn[f.block]===false)return;  // block filter: hide facilities of disabled blocks
+    T.shownCount++;
+    var inactive=f.status && f.status.toLowerCase()!=="active";
+    var m=L.marker([f.lat,f.lng],{icon:makeFacIcon(f.type,inactive)});
+    var stColor=inactive?"#c62828":"#2e7d32",stBg=inactive?"#ffebee":"#e8f5e9";
+    var popup='<div class="fac-popup"><b>'+f.name+'</b><br>'
+      +'<span class="pill">'+f.type+' • '+f.cls+'</span> '
+      +'<span class="stt" style="background:'+stBg+';color:'+stColor+';">'+(f.status||"-")+'</span><br>'
+      +'<small>Block: '+(f.block||"-")+(f.village?" • "+f.village:"")+'<br>'+(f.ur||"")+' • '+f.lat.toFixed(4)+', '+f.lng.toFixed(4)+'</small></div>';
+    m.bindPopup(popup);
+    m.on("mouseover",function(e){showTip("<b>"+f.name+"</b><br><small>"+f.type+" — "+f.cls+"</small>",e.originalEvent);});
+    m.on("mouseout",hideTip);
+    facLayer.addLayer(m);
+  });
+  bringFacFront();
+  buildFacLegend();
+  if(CURBLK)showBlockInfo(CURBLK);
+  // update status bar count
+  var total=0;Object.keys(FAC_TYPES).forEach(function(t){total+=FAC_TYPES[t].shownCount;});
+  document.getElementById("sbar").innerHTML="📍 Varanasi &nbsp;|&nbsp; 8 Blocks &nbsp;|&nbsp; 763 GPs &nbsp;|&nbsp; 102 Wards &nbsp;|&nbsp; 🏥 "+total+" facilities shown";
+}
+
+function setFacAR(on){if(FACRF)clearInterval(FACRF);if(on)FACRF=setInterval(loadFacilities,2*60*1000);}
+
+window.onload=function(){setTimeout(initMap,100);};
+</script>
+</body>
+</html>
